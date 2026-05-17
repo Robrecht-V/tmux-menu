@@ -1,0 +1,132 @@
+#!/usr/bin/env zsh
+# tmux-menu — an fzf-driven tmux session chooser.
+#
+# Usage:
+#   tmux-menu                 run the interactive chooser loop (default)
+#   tmux-menu --list          print the fzf-ready session list (internal)
+#   tmux-menu --rename <name> prompt for a new name and rename (internal)
+#   tmux-menu --help          show this help
+#   tmux-menu --version       print the version
+#
+# Behaviour:
+#   - lists existing sessions (most recently active first)
+#   - Enter on a session   -> attach to it
+#   - Enter on "+ new"      -> prompt for a NAME (required) -> create + attach
+#   - Ctrl-R on a session   -> prompt for a new NAME, rename, list refreshes
+#   - Ctrl-X on a session   -> kill it, list refreshes in place
+#   - Enter on "quit" / Esc -> drop to a plain shell
+#   - on detach, the menu reopens (kiosk loop) until you quit
+#
+# Can be either executed (recommended) or sourced from a shell rc. The
+# subcommands (--list/--rename) are only ever spawned as a child process by
+# the fzf key bindings, so dispatch falls through to the end cleanly in both
+# modes: an executed script exits, a sourced one returns to its caller.
+#
+# Requires: zsh, tmux, fzf.
+
+_TM_VERSION="1.0.0"
+
+# Absolute path to this file, resolving symlinks, whether sourced or executed.
+# %x expands to the file currently being run; :A makes it an absolute realpath.
+_TM_SELF="${(%):-%x}"
+[[ -z "$_TM_SELF" ]] && _TM_SELF="$0"
+_TM_SELF="${_TM_SELF:A}"
+
+__tm_help() {
+  sed -n '2,18p' "$_TM_SELF" | sed 's/^# \{0,1\}//'
+}
+
+# Lines are TAB-delimited: <token>\t<display>.
+# token is a real session name, or the sentinels __new__ / __quit__.
+# Sessions are listed most-recently-active first.
+__tm_list() {
+  tmux list-sessions \
+    -F $'#{session_activity}\t#{session_name}\t#{session_name} — #{session_windows} win#{?session_attached, • attached,}' \
+    2>/dev/null \
+    | sort -rn -k1,1 \
+    | cut -f2-
+  printf '%s\t%s\n' '__new__'  '＋ new session'
+  printf '%s\t%s\n' '__quit__' '✕ quit to shell'
+}
+
+# Prompt on the tty for a required, sanitized session name; echo it on stdout.
+# tmux forbids '.' and ':' in names; we keep it strict and predictable.
+__tm_prompt_name() {
+  local label="$1" name=""
+  while [[ -z "$name" ]]; do
+    printf '%s: ' "$label" >&2
+    read -r name
+    name="${name//[^A-Za-z0-9_-]/_}"
+    [[ -z "$name" ]] && echo "  a name is required." >&2
+  done
+  printf '%s\n' "$name"
+}
+
+__tm_rename() {
+  local old="$1" new
+  if [[ -n "$old" ]] && tmux has-session -t "$old" 2>/dev/null; then
+    new=$(__tm_prompt_name "Rename '$old' to")
+    if [[ "$new" == "$old" ]]; then
+      :
+    elif tmux has-session -t "$new" 2>/dev/null; then
+      echo "  a session named '$new' already exists." >&2; sleep 1.5
+    else
+      tmux rename-session -t "$old" "$new" 2>&1 || sleep 1.5
+    fi
+  fi
+}
+
+__tm_menu() {
+  if ! command -v fzf &>/dev/null; then
+    echo "tmux-menu: fzf not found; starting a plain shell." >&2
+    return 0
+  fi
+  if ! command -v tmux &>/dev/null; then
+    echo "tmux-menu: tmux not found; starting a plain shell." >&2
+    return 0
+  fi
+
+  while true; do
+    local sel token name
+    sel=$(
+      zsh "$_TM_SELF" --list \
+      | fzf --ansi --delimiter='\t' --with-nth='2..' \
+            --reverse --height='100%' --border \
+            --prompt='tmux ❯ ' \
+            --header='enter: attach   ctrl-r: rename   ctrl-x: kill   esc: quit' \
+            --bind="ctrl-r:execute(zsh $_TM_SELF --rename {1})+reload(zsh $_TM_SELF --list)" \
+            --bind="ctrl-x:execute-silent(tmux has-session -t {1} 2>/dev/null && tmux kill-session -t {1})+reload(zsh $_TM_SELF --list)" \
+            --preview='tmux list-windows -t {1} 2>/dev/null || echo "(new / no preview)"' \
+            --preview-window='right,45%,wrap'
+    ) || sel=""
+    token="${sel%%$'\t'*}"
+
+    if [[ -z "$token" || "$token" == "__quit__" ]]; then
+      break
+
+    elif [[ "$token" == "__new__" ]]; then
+      name=$(__tm_prompt_name 'New session name (required)')
+      if tmux has-session -t "$name" 2>/dev/null; then
+        tmux attach-session -t "$name"
+      else
+        tmux new-session -s "$name"
+      fi
+
+    else
+      tmux attach-session -t "$token" 2>/dev/null \
+        || echo "Session '$token' is no longer available."
+    fi
+    # loop back: re-show the menu after detach (kiosk behaviour)
+  done
+}
+
+# Dispatch. Only the no-argument case runs the interactive loop; every other
+# branch does its work and falls off the end of the script.
+case "${1:-}" in
+  --help|-h)    __tm_help ;;
+  --version|-V) echo "tmux-menu $_TM_VERSION" ;;
+  --list)       __tm_list ;;
+  --rename)     __tm_rename "$2" ;;
+  "")           __tm_menu ;;
+  *)            echo "tmux-menu: unknown argument: $1 (try --help)" >&2 ;;
+esac
