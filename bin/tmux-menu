@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+var _a;
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
