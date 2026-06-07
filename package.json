@@ -1,0 +1,29 @@
+{
+  "name": "tmux-menu",
+  "version": "1.0.0",
+  "description": "An Ink-driven tmux session chooser.",
+  "license": "MIT",
+  "bin": {
+    "tmux-menu": "bin/tmux-menu"
+  },
+  "scripts": {
+    "build": "node build.mjs && chmod +x bin/tmux-menu",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ink": "^3.2.0",
+    "react": "^17.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.42",
+    "@types/react": "^17.0.83",
+    "esbuild": "^0.24.0",
+    "ink-testing-library": "^2.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
