@@ -1,22 +1,25 @@
 # tmux-menu
 
-An fzf-driven tmux session chooser. Greets a shell with a list of existing
-tmux sessions: attach, create, rename, or kill — then re-shows itself on
-detach (kiosk loop) until you quit to a plain shell.
+A tmux session chooser built with [Ink](https://github.com/vadimdemedes/ink)
+(React for the terminal). Greets a shell with a list of existing tmux sessions:
+attach, create, rename, or kill — then re-shows itself on detach (kiosk loop)
+until you quit to a plain shell.
 
 ```
-tmux ❯
-  work — 3 win • attached
-  scratch — 1 win
-  ＋ new session
-  ✕ quit to shell
+enter: attach   ctrl-r: rename   ctrl-x: kill   esc: quit
 
-  enter: attach   ctrl-r: rename   ctrl-x: kill   esc: quit
+❯ work — 3 win • attached   ╭───────────────────╮
+  scratch — 1 win           │ 0: zsh             │
+  ＋ new session             │ 1: vim            │
+  ✕ quit to shell           ╰───────────────────╯
 ```
 
 ## Requirements
 
-- `zsh`, `tmux`, `fzf` on `PATH`.
+- `node` (>= 18) and `tmux` on `PATH`.
+
+The shipped `bin/tmux-menu` is a single self-contained bundle (all node
+dependencies are baked in), so no `node_modules` is needed at runtime.
 
 ## Install
 
@@ -48,7 +51,14 @@ tmux-menu --help
 tmux-menu --version
 ```
 
-`--list` and `--rename` are internal modes used by the fzf key bindings.
+Keys inside the chooser:
+
+- `enter` — attach to the highlighted session, or create a new one on `＋ new session`
+- `ctrl-r` — rename the highlighted session
+- `ctrl-x` — kill the highlighted session
+- `esc` — quit to a plain shell
+
+On detach the menu reopens (kiosk loop) until you quit.
 
 ## Run it on shell login
 
@@ -62,6 +72,18 @@ if [[ $- == *i* && -z "$TMUX" && -z "$TMUX_NO_MENU" && -t 1 ]] \
    && command -v tmux-menu &> /dev/null; then
   tmux-menu
 fi
+```
+
+## Development
+
+The source is TypeScript under `src/`, bundled with esbuild into the single
+`bin/tmux-menu` executable.
+
+```sh
+npm ci
+npm run build     # -> bin/tmux-menu (#!/usr/bin/env node)
+npm test          # vitest unit + Ink component tests
+npm run typecheck
 ```
 
 ## License

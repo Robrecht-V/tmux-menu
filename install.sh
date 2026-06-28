@@ -41,8 +41,9 @@ else
   echo "installed $DEST (fetched from $RAW_URL)"
 fi
 
-# Soft dependency check.
-for dep in tmux fzf zsh; do
+# Soft dependency check. The binary is a self-contained node bundle, so it
+# needs node and tmux at runtime.
+for dep in node tmux; do
   command -v "$dep" >/dev/null 2>&1 || echo "warning: '$dep' not found on PATH — tmux-menu needs it at runtime." >&2
 done
 
