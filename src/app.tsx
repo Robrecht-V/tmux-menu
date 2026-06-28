@@ -90,9 +90,14 @@ async function onNew(): Promise<void> {
 }
 
 export async function runApp(): Promise<void> {
-  await runKiosk({
-    showMenu,
-    attach: (name) => attachSession(name),
-    onNew,
-  });
+  process.stdout.write('\x1b[?1049h'); // enter alternate screen
+  try {
+    await runKiosk({
+      showMenu,
+      attach: (name) => attachSession(name),
+      onNew,
+    });
+  } finally {
+    process.stdout.write('\x1b[?1049l'); // restore main screen
+  }
 }

@@ -1418,7 +1418,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
-        function useEffect(create, deps) {
+        function useEffect2(create, deps) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useEffect(create, deps);
         }
@@ -1990,7 +1990,7 @@ var require_react_development = __commonJS({
         exports2.useCallback = useCallback;
         exports2.useContext = useContext;
         exports2.useDebugValue = useDebugValue;
-        exports2.useEffect = useEffect;
+        exports2.useEffect = useEffect2;
         exports2.useImperativeHandle = useImperativeHandle;
         exports2.useLayoutEffect = useLayoutEffect;
         exports2.useMemo = useMemo;
@@ -58931,7 +58931,7 @@ var require_backend = __commonJS({
                     });
                     return a._currentValue;
                   },
-                  useEffect: function useEffect(a) {
+                  useEffect: function useEffect2(a) {
                     C();
                     x.push({
                       primitive: "Effect",
@@ -74320,8 +74320,8 @@ var require_use_stdout = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     var react_1 = require_react();
     var StdoutContext_1 = __importDefault(require_StdoutContext());
-    var useStdout = () => react_1.useContext(StdoutContext_1.default);
-    exports2.default = useStdout;
+    var useStdout2 = () => react_1.useContext(StdoutContext_1.default);
+    exports2.default = useStdout2;
   }
 });
 
@@ -75396,6 +75396,24 @@ function Menu({
 }) {
   const [selected, setSelected] = (0, import_react.useState)(0);
   const current = items[selected];
+  const { stdout } = (0, import_ink.useStdout)();
+  const [dimensions, setDimensions] = (0, import_react.useState)({
+    columns: stdout?.columns ?? 80,
+    rows: stdout?.rows ?? 24
+  });
+  (0, import_react.useEffect)(() => {
+    if (!stdout) return;
+    const handleResize = () => {
+      setDimensions({
+        columns: stdout.columns,
+        rows: stdout.rows
+      });
+    };
+    stdout.on("resize", handleResize);
+    return () => {
+      stdout.off("resize", handleResize);
+    };
+  }, [stdout]);
   (0, import_ink.useInput)((input, key2) => {
     if (key2.upArrow) {
       setSelected((i2) => i2 > 0 ? i2 - 1 : i2);
@@ -75416,13 +75434,21 @@ function Menu({
     }
   });
   const preview = previewFor2 ? previewFor2(current) : "(new / no preview)";
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_ink.Box, { flexDirection: "column", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Text, { color: "cyan", children: HEADER_HINT }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_ink.Box, { marginTop: 1, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Box, { flexDirection: "column", marginRight: 2, children: items.map((item, i2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Text, { inverse: i2 === selected, children: (i2 === selected ? "\u276F " : "  ") + item.label }, item.token)) }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Box, { flexDirection: "column", borderStyle: "round", paddingX: 1, children: preview.split("\n").map((line, i2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Text, { dimColor: true, children: line }, i2)) })
-    ] })
-  ] });
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    import_ink.Box,
+    {
+      width: dimensions.columns,
+      height: dimensions.rows,
+      flexDirection: "column",
+      children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Text, { color: "cyan", children: HEADER_HINT }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_ink.Box, { marginTop: 1, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Box, { flexDirection: "column", marginRight: 2, children: items.map((item, i2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Text, { inverse: i2 === selected, children: (i2 === selected ? "\u276F " : "  ") + item.label }, item.token)) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Box, { flexDirection: "column", borderStyle: "round", paddingX: 1, children: preview.split("\n").map((line, i2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_ink.Text, { dimColor: true, children: line }, i2)) })
+        ] })
+      ]
+    }
+  );
 }
 var import_react, import_ink, import_jsx_runtime, HEADER_HINT;
 var init_Menu = __esm({
@@ -75663,11 +75689,16 @@ async function onNew() {
   }
 }
 async function runApp() {
-  await runKiosk({
-    showMenu,
-    attach: (name) => attachSession(name),
-    onNew
-  });
+  process.stdout.write("\x1B[?1049h");
+  try {
+    await runKiosk({
+      showMenu,
+      attach: (name) => attachSession(name),
+      onNew
+    });
+  } finally {
+    process.stdout.write("\x1B[?1049l");
+  }
 }
 var import_ink3, import_jsx_runtime3;
 var init_app = __esm({

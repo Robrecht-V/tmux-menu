@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { Box, Text, useInput, useStdout } from 'ink';
 import { MenuItem } from './sessions';
 
 export const HEADER_HINT =
@@ -24,6 +24,26 @@ export function Menu({
   const [selected, setSelected] = useState(0);
   const current = items[selected];
 
+  const { stdout } = useStdout();
+  const [dimensions, setDimensions] = useState({
+    columns: stdout?.columns ?? 80,
+    rows: stdout?.rows ?? 24,
+  });
+
+  useEffect(() => {
+    if (!stdout) return;
+    const handleResize = () => {
+      setDimensions({
+        columns: stdout.columns,
+        rows: stdout.rows,
+      });
+    };
+    stdout.on('resize', handleResize);
+    return () => {
+      stdout.off('resize', handleResize);
+    };
+  }, [stdout]);
+
   useInput((input, key) => {
     if (key.upArrow) {
       setSelected((i) => (i > 0 ? i - 1 : i));
@@ -47,7 +67,11 @@ export function Menu({
   const preview = previewFor ? previewFor(current) : '(new / no preview)';
 
   return (
-    <Box flexDirection="column">
+    <Box
+      width={dimensions.columns}
+      height={dimensions.rows}
+      flexDirection="column"
+    >
       <Text color="cyan">{HEADER_HINT}</Text>
       <Box marginTop={1}>
         <Box flexDirection="column" marginRight={2}>
